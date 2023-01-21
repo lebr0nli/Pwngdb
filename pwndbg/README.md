@@ -8,7 +8,7 @@
 
 3. Add `import pwndbg.commands.pwngdb` and `import pwndbg.commands.angelheap` into `/path/to/pwndbg/pwndbg/__init__.py`
 
-You can use these commands to install it:
+You can use [install.sh](install.sh) to do this automatically or use the following commands:
 
 ```shell
 #!/bin/bash
@@ -22,8 +22,8 @@ cp angelheap.py $pwndbg/pwndbg/angelheap.py
 cp commands/pwngdb.py $pwndbg/pwndbg/commands/pwngdb.py
 cp commands/angelheap.py $pwndbg/pwndbg/commands/angelheap.py
 
-sed -i -e '/import pwndbg.commands.xor/a import pwndbg.commands.pwngdb' $pwndbg/pwndbg/__init__.py
-sed -i -e '/import pwndbg.commands.xor/a import pwndbg.commands.angelheap' $pwndbg/pwndbg/__init__.py
+sed -i -e '/import pwndbg.commands.xor/a \ \ \ \ import pwndbg.commands.pwngdb' $pwndbg/pwndbg/commands/__init__.py
+sed -i -e '/import pwndbg.commands.xor/a \ \ \ \ import pwndbg.commands.angelheap' $pwndbg/pwndbg/commands/__init__.py
 ```
 
 ## Note

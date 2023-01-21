@@ -585,14 +585,6 @@ def get_fast_bin(arena=None):
             fastbin[i].append(copy.deepcopy(chunk))
 
 
-def get_curthread():
-    cmd = "thread"
-    thread_id = int(
-        gdb.execute(cmd, to_string=True).split("thread is")[1].split()[0].strip()
-    )
-    return thread_id
-
-
 def get_all_threads():
     cmd = "info threads"
     all_threads = [
@@ -1714,7 +1706,7 @@ def putarenainfo():
 
 
 def putheapinfoall():
-    cur_thread_id = get_curthread()
+    cur_thread_id = gdb.selected_thread().num
     all_threads = get_all_threads()
     for thread_id in all_threads:
         if thread_id == cur_thread_id:

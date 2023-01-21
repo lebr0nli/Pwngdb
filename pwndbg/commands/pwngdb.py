@@ -1,45 +1,47 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Pwngdb by angenboy
 
 https://github.com/scwuaptx/Pwngdb
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-import subprocess
 import argparse
+import subprocess
 
 import gdb
 
-import pwndbg.commands
 import pwndbg.arch
-import pwndbg.proc
-import pwndbg.search
-import pwndbg.regs
-import pwndbg.symbol
+import pwndbg.commands
 import pwndbg.memory
+import pwndbg.proc
 import pwndbg.pwngdb as pwngdb
-
-
+import pwndbg.regs
+import pwndbg.search
+import pwndbg.symbol
 
 parser = argparse.ArgumentParser()
 parser.description = "Automatically attach process by filename."
-parser.add_argument("processname", nargs='?', type=str, default=None, help="Process name")
+parser.add_argument(
+    "processname", nargs="?", type=str, default=None, help="Process name"
+)
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 def at(processname=None):
     if processname is None:
         processname = pwndbg.proc.exe
-    try :
-        pidlist = map(int, subprocess.check_output('pidof $(basename {})'.format(processname), shell=True).decode('utf8').split())
+    try:
+        pidlist = map(
+            int,
+            subprocess.check_output(
+                "pidof $(basename {})".format(processname), shell=True
+            )
+            .decode("utf8")
+            .split(),
+        )
 
         for pid in pidlist:
             if pid == pwndbg.proc.pid:
                 continue
-            print('attaching to {} ...'.format(processname))
+            print("attaching to {} ...".format(processname))
             gdb.execute("attach {}".format(pid))
             pwngdb.getheapbase()
             pwngdb.libcbase()
@@ -62,9 +64,9 @@ def libc():
 @pwndbg.commands.OnlyWhenRunning
 def heapbase():
     heapbase_addr = pwngdb.getheapbase()
-    if heapbase_addr :
+    if heapbase_addr:
         print("\033[34m" + "heapbase : " + "\033[37m" + hex(heapbase_addr))
-    else :
+    else:
         print("heap not found")
 
 
@@ -93,7 +95,9 @@ def tls():
 
 parser = argparse.ArgumentParser()
 parser.description = "Calculate the index of format string."
-parser.add_argument("addr", nargs='?', type=int, help="Address of the target")
+parser.add_argument("addr", nargs="?", type=int, help="Address of the target")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def fmtarg(addr):
@@ -111,24 +115,34 @@ def fmtarg(addr):
 
 parser = argparse.ArgumentParser()
 parser.description = "Calculate the offset of libc."
-parser.add_argument("symbol", nargs='?', type=str, help="A symbol or an address")
+parser.add_argument("symbol", nargs="?", type=str, help="A symbol or an address")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def off(symbol):
     symaddr = pwngdb.getoff(symbol)
-    if symaddr == -1 :
+    if symaddr == -1:
         print("symbol not found")
         return
 
-    if type(symbol) is int :
-        print("\033[34m" + hex(symbol)  + " : " + "\033[37m" + hex(symaddr))
-    else :
-        print("\033[34m" + symbol  + " : " + "\033[37m" + hex(symaddr))
+    if type(symbol) is int:
+        print("\033[34m" + hex(symbol) + " : " + "\033[37m" + hex(symaddr))
+    else:
+        print("\033[34m" + symbol + " : " + "\033[37m" + hex(symaddr))
 
 
 parser = argparse.ArgumentParser()
 parser.description = "Find the syscall gadget."
-parser.add_argument("mapping_name", nargs='?', type=str, default=None, help="Mapping to search [e.g. libc]")
+parser.add_argument(
+    "mapping_name",
+    nargs="?",
+    type=str,
+    default=None,
+    help="Mapping to search [e.g. libc]",
+)
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def findsyscall(mapping_name=None):
@@ -136,7 +150,7 @@ def findsyscall(mapping_name=None):
         mapping_name = pwndbg.proc.exe
     arch = pwndbg.arch.current
 
-    if arch == "x86-64" :
+    if arch == "x86-64":
         gdb.execute("search -e -x 0f05 {}".format(mapping_name))
     elif arch == "i386":
         gdb.execute("search -e -x cd80 {}".format(mapping_name))
@@ -144,13 +158,15 @@ def findsyscall(mapping_name=None):
         gdb.execute("search -e -x 00df80bc {}".format(mapping_name))
     elif arch == "aarch64":
         gdb.execute("search -e -x 010000d4 {}".format(mapping_name))
-    else :
+    else:
         print("arch not support")
 
 
 parser = argparse.ArgumentParser()
 parser.description = "Find some function call."
-parser.add_argument("symbol", nargs='?', type=str, help="A symbol of a function")
+parser.add_argument("symbol", nargs="?", type=str, help="A symbol of a function")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWithFile
 def findcall(symbol):
@@ -161,21 +177,28 @@ def findcall(symbol):
 @pwndbg.commands.ArgparsedCommand("Print the GOT table by objdump.")
 @pwndbg.commands.OnlyWithFile
 def objdump_got():
-    cmd = "objdump -R {} {}".format("--demangle" if pwngdb.iscplus() else "", pwndbg.proc.exe)
+    cmd = "objdump -R {} {}".format(
+        "--demangle" if pwngdb.iscplus() else "", pwndbg.proc.exe
+    )
     print(subprocess.check_output(cmd, shell=True)[:-2].decode("utf8").strip())
+
 
 @pwndbg.commands.ArgparsedCommand("Print dynamic section.")
 @pwndbg.commands.OnlyWithFile
 def dyn():
-    print(subprocess.check_output("readelf -d {}".format(pwndbg.proc.exe), shell=True).decode("utf8").strip())
+    print(
+        subprocess.check_output("readelf -d {}".format(pwndbg.proc.exe), shell=True)
+        .decode("utf8")
+        .strip()
+    )
 
 
 @pwndbg.commands.ArgparsedCommand("Print usefual variables or function in glibc.")
 @pwndbg.commands.OnlyWhenRunning
 def magic():
     print("========== function ==========")
-    for f in pwngdb.magic_function :
-        print("\033[34m" + f  + ":" + "\033[33m" +hex(pwngdb.getoff(f))) 
+    for f in pwngdb.magic_function:
+        print("\033[34m" + f + ":" + "\033[33m" + hex(pwngdb.getoff(f)))
     print("\033[00m========== variables ==========")
     for v in pwngdb.magic_variable:
         addr = pwndbg.symbol.address(v)
@@ -183,12 +206,17 @@ def magic():
             print("\033[34m" + v + ":" + "\033[33m" + "not found")
         offset = addr - pwngdb.libcbase()
         pad = 36 - len(v) - len(hex(offset)) - 2
-        print("\033[34m%s\033[33m(%s)\033[37m%s: \033[37m0x%016x" % (v, hex(offset), ' ' *pad, addr))
+        print(
+            "\033[34m%s\033[33m(%s)\033[37m%s: \033[37m0x%016x"
+            % (v, hex(offset), " " * pad, addr)
+        )
 
 
 parser = argparse.ArgumentParser()
 parser.description = "Show FILE structure."
-parser.add_argument("addr", nargs='?', type=int, help="Address of the target")
+parser.add_argument("addr", nargs="?", type=int, help="Address of the target")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def fp(addr):
@@ -203,15 +231,20 @@ def fpchain():
 
 parser = argparse.ArgumentParser()
 parser.description = "Test house of orange."
-parser.add_argument("addr", nargs='?', type=int, help="Address of the target")
+parser.add_argument("addr", nargs="?", type=int, help="Address of the target")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def orange(addr):
     pwngdb.testorange(addr)
 
+
 parser = argparse.ArgumentParser()
 parser.description = "Set the breakpoint at some function call."
-parser.add_argument("symbol", nargs='?', type=str, help="A symbol of a function")
+parser.add_argument("symbol", nargs="?", type=str, help="A symbol of a function")
+
+
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWithFile
 def bcall(symbol):
@@ -220,7 +253,6 @@ def bcall(symbol):
         print("symbol not found")
         return
     codebase = pwngdb.codeaddr()[0] if pwngdb.ispie() else 0
-    for callbase in call.split('\n'):
-        addr = int(callbase.split(':')[0], 16) + codebase
+    for callbase in call.split("\n"):
+        addr = int(callbase.split(":")[0], 16) + codebase
         gdb.execute("b *{}".format(hex(addr)))
-

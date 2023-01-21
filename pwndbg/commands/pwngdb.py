@@ -8,14 +8,14 @@ import subprocess
 
 import gdb
 
-import pwndbg.arch
 import pwndbg.commands
-import pwndbg.memory
-import pwndbg.proc
+import pwndbg.gdblib.arch
+import pwndbg.gdblib.memory
+import pwndbg.gdblib.proc
+import pwndbg.gdblib.regs
+import pwndbg.gdblib.symbol
 import pwndbg.pwngdb as pwngdb
-import pwndbg.regs
 import pwndbg.search
-import pwndbg.symbol
 
 
 @pwndbg.commands.ArgparsedCommand("Get libc base.")
@@ -55,15 +55,15 @@ parser.add_argument("addr", nargs="?", type=int, help="Address of the target")
 @pwndbg.commands.ArgparsedCommand(parser)
 @pwndbg.commands.OnlyWhenRunning
 def fmtarg(addr):
-    if pwndbg.arch.current == "i386":
+    if pwndbg.gdblib.arch.current == "i386":
         reg = "esp"
-    elif pwndbg.arch.current == "x86-64":
+    elif pwndbg.gdblib.arch.current == "x86-64":
         reg = "rsp"
     else:
         print("arch not support")
         return
-    start = pwndbg.regs[reg]
-    idx = (addr - start) / (pwndbg.arch.ptrsize) + 6
+    start = pwndbg.gdblib.regs[reg]
+    idx = (addr - start) / (pwndbg.gdblib.arch.ptrsize) + 6
     print("The index of format argument : %d" % idx)
 
 
@@ -101,8 +101,8 @@ parser.add_argument(
 @pwndbg.commands.OnlyWhenRunning
 def findsyscall(mapping_name=None):
     if mapping_name is None:
-        mapping_name = pwndbg.proc.exe
-    arch = pwndbg.arch.current
+        mapping_name = pwndbg.gdblib.proc.exe
+    arch = pwndbg.gdblib.arch.current
 
     if arch == "x86-64":
         gdb.execute("search -e -x 0f05 {}".format(mapping_name))
@@ -132,7 +132,7 @@ def findcall(symbol):
 @pwndbg.commands.OnlyWithFile
 def objdump_got():
     cmd = "objdump -R {} {}".format(
-        "--demangle" if pwngdb.iscplus() else "", pwndbg.proc.exe
+        "--demangle" if pwngdb.iscplus() else "", pwndbg.gdblib.proc.exe
     )
     print(subprocess.check_output(cmd, shell=True)[:-2].decode("utf8").strip())
 
@@ -141,7 +141,9 @@ def objdump_got():
 @pwndbg.commands.OnlyWithFile
 def dyn():
     print(
-        subprocess.check_output("readelf -d {}".format(pwndbg.proc.exe), shell=True)
+        subprocess.check_output(
+            "readelf -d {}".format(pwndbg.gdblib.proc.exe), shell=True
+        )
         .decode("utf8")
         .strip()
     )
@@ -155,7 +157,7 @@ def magic():
         print("\033[34m" + f + ":" + "\033[33m" + hex(pwngdb.getoff(f)))
     print("\033[00m========== variables ==========")
     for v in pwngdb.magic_variable:
-        addr = pwndbg.symbol.address(v)
+        addr = pwndbg.gdblib.symbol.address(v)
         if addr is None:
             print("\033[34m" + v + ":" + "\033[33m" + "not found")
         offset = addr - pwngdb.libcbase()

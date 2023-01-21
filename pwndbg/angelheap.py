@@ -10,8 +10,8 @@ import struct
 
 import gdb
 
-import pwndbg.arch
-import pwndbg.vmmap
+import pwndbg.gdblib.arch
+import pwndbg.gdblib.vmmap
 
 # main_arena
 main_arena = 0
@@ -383,14 +383,14 @@ def getarch():
     global capsize
     global word
     global arch
-    capsize = pwndbg.arch.ptrsize
+    capsize = pwndbg.gdblib.arch.ptrsize
     word = "gx " if capsize == 8 else "x "
-    arch = pwndbg.arch.current
+    arch = pwndbg.gdblib.arch.current
     return arch
 
 
 def libcbase():
-    for p in pwndbg.vmmap.get():
+    for p in pwndbg.gdblib.vmmap.get():
         if re.search(".*libc-.*", p.objfile):
             return p.start
     return 0

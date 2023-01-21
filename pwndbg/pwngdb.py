@@ -9,12 +9,12 @@ import subprocess
 
 import gdb
 
-import pwndbg.arch
-import pwndbg.memory
-import pwndbg.proc
+import pwndbg.gdblib.arch
+import pwndbg.gdblib.memory
+import pwndbg.gdblib.proc
+import pwndbg.gdblib.symbol
+import pwndbg.gdblib.vmmap
 import pwndbg.search
-import pwndbg.symbol
-import pwndbg.vmmap
 
 magic_variable = [
     "__malloc_hook",
@@ -55,7 +55,7 @@ def procmap():
 
 
 def libcbase():
-    for p in pwndbg.vmmap.get():
+    for p in pwndbg.gdblib.vmmap.get():
         if re.search(".*libc-.*", p.objfile):
             libcaddr = p.start
             gdb.execute("set $libc={}".format(hex(libcaddr)))
@@ -64,7 +64,7 @@ def libcbase():
 
 
 def getheapbase():
-    for p in pwndbg.vmmap.get():
+    for p in pwndbg.gdblib.vmmap.get():
         if re.search(".*heap\]", p.objfile):
             heapbase = p.start
             gdb.execute("set $heap={}".format(hex(heapbase)))
@@ -73,7 +73,7 @@ def getheapbase():
 
 
 def ldbase():
-    for p in pwndbg.vmmap.get():
+    for p in pwndbg.gdblib.vmmap.get():
         if re.search(".*ld.*\.so", p.objfile):
             ldbase = p.start
             gdb.execute("set $ld={}".format(hex(ldbase)))
@@ -82,10 +82,12 @@ def ldbase():
 
 
 def codeaddr():  # ret (start, end)
-    pat = ".*" + pwndbg.proc.exe
-    if pwndbg.vmmap.get() and re.search(pat, pwndbg.vmmap.get()[0].objfile):
-        codebaseaddr = pwndbg.vmmap.get()[0].start
-        codeend = pwndbg.vmmap.get()[0].end
+    pat = ".*" + pwndbg.gdblib.proc.exe
+    if pwndbg.gdblib.vmmap.get() and re.search(
+        pat, pwndbg.gdblib.vmmap.get()[0].objfile
+    ):
+        codebaseaddr = pwndbg.gdblib.vmmap.get()[0].start
+        codeend = pwndbg.gdblib.vmmap.get()[0].end
         gdb.execute("set $code=%s" % hex(codebaseaddr))
         return (codebaseaddr, codeend)
     else:
@@ -112,12 +114,12 @@ def getoff(symbol):
 
 def iscplus():
     return "CXX" in subprocess.check_output(
-        "readelf -s {}".format(pwndbg.proc.exe), shell=True
+        "readelf -s {}".format(pwndbg.gdblib.proc.exe), shell=True
     ).decode("utf8")
 
 
 def searchcall(symbol):
-    procname = pwndbg.proc.exe
+    procname = pwndbg.gdblib.proc.exe
     cmd = "objdump -d -M intel {} {}".format(
         "--demangle" if iscplus() else "", procname
     )
@@ -130,7 +132,7 @@ def searchcall(symbol):
 
 def ispie():
     result = subprocess.check_output(
-        "readelf -h {}".format(pwndbg.proc.exe), shell=True
+        "readelf -h {}".format(pwndbg.gdblib.proc.exe), shell=True
     ).decode("utf8")
     return True if re.search("DYN", result) else False
 
@@ -147,9 +149,9 @@ def showfp(addr):
 
 
 def showfpchain():
-    _IO_list_all_addr = pwndbg.symbol.address("_IO_list_all")
-    head = pwndbg.memory.read(_IO_list_all_addr, pwndbg.arch.ptrsize)
-    head = int.from_bytes(head, byteorder=pwndbg.arch.endian)
+    _IO_list_all_addr = pwndbg.gdblib.symbol.address("_IO_list_all")
+    head = pwndbg.gdblib.memory.read(_IO_list_all_addr, pwndbg.gdblib.arch.ptrsize)
+    head = int.from_bytes(head, byteorder=pwndbg.gdblib.arch.endian)
     print("\033[32mfpchain:\033[1;37m ", end="")
     chain = head
     print("0x%x" % chain, end="")
@@ -161,8 +163,8 @@ def showfpchain():
                     "&((struct _IO_FILE_plus *)" + hex(chain) + ").file._chain"
                 )
             )
-            chain = pwndbg.memory.read(chain_addr, pwndbg.arch.ptrsize)
-            chain = int.from_bytes(chain, byteorder=pwndbg.arch.endian)
+            chain = pwndbg.gdblib.memory.read(chain_addr, pwndbg.gdblib.arch.ptrsize)
+            chain = int.from_bytes(chain, byteorder=pwndbg.gdblib.arch.endian)
             print("0x%x" % chain, end="")
         print()
     except:
@@ -174,22 +176,22 @@ def testorange(addr):
     mode_addr = int(
         gdb.parse_and_eval("&((struct _IO_FILE_plus *)" + hex(addr) + ").file._mode")
     )
-    mode = pwndbg.memory.read(mode_addr, pwndbg.arch.ptrsize)
-    mode = int.from_bytes(mode, byteorder=pwndbg.arch.endian) & 0xFFFFFFFF
+    mode = pwndbg.gdblib.memory.read(mode_addr, pwndbg.gdblib.arch.ptrsize)
+    mode = int.from_bytes(mode, byteorder=pwndbg.gdblib.arch.endian) & 0xFFFFFFFF
     write_ptr_address = int(
         gdb.parse_and_eval(
             "&((struct _IO_FILE_plus *)" + hex(addr) + ").file._IO_write_ptr"
         )
     )
-    write_ptr = pwndbg.memory.read(write_ptr_address, pwndbg.arch.ptrsize)
-    write_ptr = int.from_bytes(write_ptr, byteorder=pwndbg.arch.endian)
+    write_ptr = pwndbg.gdblib.memory.read(write_ptr_address, pwndbg.gdblib.arch.ptrsize)
+    write_ptr = int.from_bytes(write_ptr, byteorder=pwndbg.gdblib.arch.endian)
     write_base_addr = int(
         gdb.parse_and_eval(
             "&((struct _IO_FILE_plus *)" + hex(addr) + ").file._IO_write_base"
         )
     )
-    write_base = pwndbg.memory.read(write_base_addr, pwndbg.arch.ptrsize)
-    write_base = int.from_bytes(write_base, byteorder=pwndbg.arch.endian)
+    write_base = pwndbg.gdblib.memory.read(write_base_addr, pwndbg.gdblib.arch.ptrsize)
+    write_base = int.from_bytes(write_base, byteorder=pwndbg.gdblib.arch.endian)
     if mode < 0x80000000 and mode != 0:
         try:
             wide_data_addr = int(
@@ -197,22 +199,32 @@ def testorange(addr):
                     "&((struct _IO_FILE_plus *)" + hex(addr) + ").file._wide_data"
                 )
             )
-            wide_data = pwndbg.memory.read(wide_data_addr, pwndbg.arch.ptrsize)
-            wide_data = int.from_bytes(wide_data, byteorder=pwndbg.arch.endian)
+            wide_data = pwndbg.gdblib.memory.read(
+                wide_data_addr, pwndbg.gdblib.arch.ptrsize
+            )
+            wide_data = int.from_bytes(wide_data, byteorder=pwndbg.gdblib.arch.endian)
             w_write_ptr_addr = int(
                 gdb.parse_and_eval(
                     "&((struct _IO_wide_data *)" + hex(wide_data) + ")._IO_write_ptr"
                 )
             )
-            w_write_ptr = pwndbg.memory.read(w_write_ptr_addr, pwndbg.arch.ptrsize)
-            w_write_ptr = int.from_bytes(w_write_ptr, byteorder=pwndbg.arch.endian)
+            w_write_ptr = pwndbg.gdblib.memory.read(
+                w_write_ptr_addr, pwndbg.gdblib.arch.ptrsize
+            )
+            w_write_ptr = int.from_bytes(
+                w_write_ptr, byteorder=pwndbg.gdblib.arch.endian
+            )
             w_write_base_addr = int(
                 gdb.parse_and_eval(
                     "&((struct _IO_wide_data *)" + hex(wide_data) + ")._IO_write_base"
                 )
             )
-            w_write_base = pwndbg.memory.read(w_write_base_addr, pwndbg.arch.ptrsize)
-            w_write_base = int.from_bytes(w_write_base, byteorder=pwndbg.arch.endian)
+            w_write_base = pwndbg.gdblib.memory.read(
+                w_write_base_addr, pwndbg.gdblib.arch.ptrsize
+            )
+            w_write_base = int.from_bytes(
+                w_write_base, byteorder=pwndbg.gdblib.arch.endian
+            )
             if w_write_ptr <= w_write_base:
                 print(
                     "\033[;1;31m_wide_data->_IO_write_ptr(0x%x) < _wide_data->_IO_write_base(0x%x)\033[1;37m"
@@ -236,8 +248,8 @@ def testorange(addr):
                 "&((struct _IO_FILE_plus *)" + hex(addr) + ").vtable.__overflow"
             )
         )
-        overflow = pwndbg.memory.read(overflow_addr, pwndbg.arch.ptrsize)
-        overflow = int.from_bytes(overflow, byteorder=pwndbg.arch.endian)
+        overflow = pwndbg.gdblib.memory.read(overflow_addr, pwndbg.gdblib.arch.ptrsize)
+        overflow = int.from_bytes(overflow, byteorder=pwndbg.gdblib.arch.endian)
         print("Func : \033[33m 0x%x\033[1;37m" % overflow)
     else:
         print("Result : \033[31mFalse\033[1;37m")

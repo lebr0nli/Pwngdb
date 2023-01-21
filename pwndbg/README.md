@@ -30,9 +30,14 @@ sed -i -e '/import pwndbg.commands.xor/a import pwndbg.commands.angelheap' $pwnd
 
 To avoid the conflict with pwndbg, some commands will be different or be removed.
 
-1. `got` will be renamed to `objdump_got`
-
-2. `canary` will be removed since pwndbg already has `canary` command
+| pwngdb command | pwndbg command                                     |
+| -------------- | -------------------------------------------------- |
+| `got`          | renamed to `objdump_got`                           |
+| `canary`       | removed since pwndbg has same command (`canary`)   |
+| `tls`          | removed since pwndbg has same command (`tls`)      |
+| `free`         | removed since pwndbg has same command (`try_free`) |
+| `at`           | removed since pwndbg has same command (`attachp`)  |
+| `codebase`     | removed since pwndbg has same command (`piebase`)  |
 
 ## TODO
 

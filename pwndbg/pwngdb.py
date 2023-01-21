@@ -92,43 +92,6 @@ def codeaddr():  # ret (start, end)
         return (0, 0)
 
 
-def gettls():
-    arch = pwndbg.arch.current
-
-    if arch == "i386":
-        vsysaddr = (
-            gdb.execute("info functions __kernel_vsyscall", to_string=True)
-            .split("\n")[-2]
-            .split()[0]
-            .strip()
-        )
-        value = struct.pack("<L", int(vsysaddr, 16))
-        sysinfo = [address for address in pwndbg.search.search(value)][0]
-        return sysinfo - 0x10
-    elif arch == "x86-64":
-        gdb.execute("call (int)arch_prctl(0x1003, $rsp-8)", to_string=True)
-        data = gdb.execute("x/xg $rsp-8", to_string=True)
-        return int(data.split(":")[1].strip(), 16)
-    else:
-        return -1
-
-
-# pwndbg already has canary command
-# def getcanary():
-#     arch = pwndbg.arch.current
-#     tlsaddr = gettls()
-#     if arch == "i386" :
-#         offset = 0x14
-#         result = gdb.execute("x/xw " + hex(tlsaddr + offset), to_string=True).split(":")[1].strip()
-#         return int(result, 16)
-#     elif arch == "x86-64" :
-#         offset = 0x28
-#         result = gdb.execute("x/xg " + hex(tlsaddr + offset), to_string=True).split(":")[1].strip()
-#         return int(result, 16)
-#     else :
-#         return -1
-
-
 def getoff(symbol):
     libc = libcbase()
     symbol = to_int(symbol)

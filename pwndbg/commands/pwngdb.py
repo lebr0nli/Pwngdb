@@ -17,42 +17,6 @@ import pwndbg.regs
 import pwndbg.search
 import pwndbg.symbol
 
-parser = argparse.ArgumentParser()
-parser.description = "Automatically attach process by filename."
-parser.add_argument(
-    "processname", nargs="?", type=str, default=None, help="Process name"
-)
-
-
-@pwndbg.commands.ArgparsedCommand(parser)
-def at(processname=None):
-    if processname is None:
-        processname = pwndbg.proc.exe
-    try:
-        pidlist = map(
-            int,
-            subprocess.check_output(
-                "pidof $(basename {})".format(processname), shell=True
-            )
-            .decode("utf8")
-            .split(),
-        )
-
-        for pid in pidlist:
-            if pid == pwndbg.proc.pid:
-                continue
-            print("attaching to {} ...".format(processname))
-            gdb.execute("attach {}".format(pid))
-            pwngdb.getheapbase()
-            pwngdb.libcbase()
-            pwngdb.codeaddr()
-            pwngdb.ldbase()
-            return
-
-        print("already attached on {}".format(pwndbg.proc.pid))
-    except:
-        print("no such process:", processname)
-
 
 @pwndbg.commands.ArgparsedCommand("Get libc base.")
 @pwndbg.commands.OnlyWhenRunning
@@ -81,16 +45,6 @@ def ld():
 def codebase():
     codebs = pwngdb.codeaddr()[0]
     print("\033[34m" + "codebase : " + "\033[37m" + hex(codebs))
-
-
-@pwndbg.commands.ArgparsedCommand("Get tls base.")
-@pwndbg.commands.OnlyWhenRunning
-def tls():
-    tlsaddr = pwngdb.gettls()
-    if tlsaddr != -1:
-        print("\033[34m" + "tls : " + "\033[37m" + hex(tlsaddr))
-    else:
-        print("cannot get tls")
 
 
 parser = argparse.ArgumentParser()

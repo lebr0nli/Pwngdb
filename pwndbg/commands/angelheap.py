@@ -132,6 +132,8 @@ def inused():
 
 @pwndbg.commands.ArgparsedCommand("Parse heap.")
 @pwndbg.commands.OnlyWhenRunning
+@pwndbg.commands.OnlyWithResolvedHeapSyms
+@pwndbg.commands.OnlyWhenHeapIsInitialized
 def parseheap():
     angelheap.parse_heap()
 

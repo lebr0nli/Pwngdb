@@ -12,6 +12,7 @@ import gdb
 
 import pwndbg.gdblib.arch
 import pwndbg.gdblib.vmmap
+from pwndbg.heap.ptmalloc import Arena, Chunk
 
 # main_arena
 main_arena = 0
@@ -1729,73 +1730,50 @@ def putinused():
     print("")
 
 
-def parse_heap(arena=None):
-    if capsize == 0:
-        arch = getarch()
-    if not get_heap_info(arena):
-        print("can't find heap info")
-        return
-
-    hb = get_heapbase()
-    chunkaddr = hb
-    if not chunkaddr:
-        print("Can't find heap")
-        return
+def parse_heap():
+    allocator = pwndbg.heap.current
+    arena = pwndbg.heap.current.thread_arena
+    fastbins = allocator.fastbins(arena.address)
+    if allocator.has_tcache():
+        tcachebins = allocator.tcachebins(None)
+    else:
+        tcachebins = None
     print(
         "\033[1;33m{:<20}{:<20}{:<21}{:<20}{:<18}{:<18}\033[0m".format(
             "addr", "prev", "size", "status", "fd", "bk"
         )
     )
-    while chunkaddr != top["addr"]:
-        try:
-            cmd = "x/" + word + hex(chunkaddr)
-            prev_size = int(gdb.execute(cmd, to_string=True).split(":")[1].strip(), 16)
-            cmd = "x/" + word + hex(chunkaddr + capsize * 1)
-            size = int(gdb.execute(cmd, to_string=True).split(":")[1].strip(), 16)
-            cmd = "x/" + word + hex(chunkaddr + capsize * 2)
-            if size == 0 and chunkaddr == hb:
-                chunkaddr += capsize * 2
-                continue
-            fd = int(gdb.execute(cmd, to_string=True).split(":")[1].strip(), 16)
-            cmd = "x/" + word + hex(chunkaddr + capsize * 3)
-            bk = int(gdb.execute(cmd, to_string=True).split(":")[1].strip(), 16)
-            cmd = "x/" + word + hex(chunkaddr + (size & 0xFFFFFFFFFFFFFFF8) + capsize)
-            nextsize = int(gdb.execute(cmd, to_string=True).split(":")[1].strip(), 16)
-            status = nextsize & 1
-            size = size & 0xFFFFFFFFFFFFFFF8
-            if size == 0:
-                print("\033[31mCorrupt ?! \033[0m(size == 0) (0x%x)" % chunkaddr)
-                break
-            if status:
-                if chunkaddr in fastchunk or chunkaddr in all_tcache_entry:
-                    msg = "\033[1;34m Freed \033[0m"
-                    print(
-                        "0x{:<18x}0x{:<18x}0x{:<18x}{:<16}{:>18}{:>18}".format(
-                            chunkaddr, prev_size, size, msg, hex(fd), "None"
-                        )
-                    )
-                else:
-                    msg = "\033[31m Used \033[0m"
-                    print(
-                        "0x{:<18x}0x{:<18x}0x{:<18x}{:<16}{:>18}{:>18}".format(
-                            chunkaddr, prev_size, size, msg, "None", "None"
-                        )
-                    )
-            else:
-                msg = "\033[1;34m Freed \033[0m"
-                print(
-                    "0x{:<18x}0x{:<18x}0x{:<18x}{:<16}{:>18}{:>18}".format(
-                        chunkaddr, prev_size, size, msg, hex(fd), hex(bk)
-                    )
-                )
-            chunkaddr = chunkaddr + (size & 0xFFFFFFFFFFFFFFF8)
-
-            if chunkaddr > top["addr"]:
-                print("\033[31mCorrupt ?!\033[0m")
-                break
-        except:
-            print("Corrupt ?!")
+    for chunk in arena.active_heap:
+        if chunk.is_top_chunk:
             break
+        if chunk.real_size == 0:
+            print("\033[31mCorrupt ?! \033[0m(size == 0) (0x%x)" % chunk.address)
+            break
+        next_chunk = chunk.next_chunk()
+        if not next_chunk:
+            print("\033[31mCorrupt ?!\033[0m")
+            break
+        status = next_chunk.size & 1
+        if status:
+            if fastbins.contains_chunk(chunk.real_size, chunk.address) or (
+                tcachebins and tcachebins.contains_chunk(chunk.real_size, chunk.address)
+            ):
+                msg = "\033[1;34m Freed \033[0m"
+                fd = hex(chunk.fd)
+                bk = "None"
+            else:
+                msg = "\033[31m Used \033[0m"
+                fd = "None"
+                bk = "None"
+        else:
+            msg = "\033[1;34m Freed \033[0m"
+            fd = hex(chunk.fd)
+            bk = hex(chunk.bk)
+        print(
+            "0x{:<18x}0x{:<18x}0x{:<18x}{:<16}{:>18}{:>18}".format(
+                chunk.address, chunk.prev_size, chunk.real_size, msg, fd, bk
+            )
+        )
 
 
 def fastbin_idx(size):
